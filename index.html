@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Uploadcare Ad Uploader</title>
+    <script type="module">
+      import * as UC from 'https://cdn.jsdelivr.net/npm/@uploadcare/file-uploader@1/web/file-uploader.min.js';
+      UC.defineComponents(UC);
+    </script>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@uploadcare/file-uploader@1/web/uc-file-uploader-regular.min.css"
+    />
+    <style>
+      body {
+        font-family: sans-serif;
+        padding: 2rem;
+      }
+      .error {
+        color: red;
+        margin-top: 1rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Upload Your Ad</h1>
+
+    <!-- Uploadcare config -->
+    <uc-config ctx-name="my-uploader" pubkey="a51c89007d0bce21876e"></uc-config>
+
+    <!-- File uploader -->
+    <uc-file-uploader-regular ctx-name="my-uploader"></uc-file-uploader-regular>
+
+    <!-- Error Message Display -->
+    <div id="error-message" class="error"></div>
+
+    <script>
+      const allowedDimensions = [
+        [300, 250],
+        [728, 90],
+        [300, 600],
+        [160, 600],
+        [320, 50],
+        [320, 480],
+      ];
+      const allowedFormats = ['image/png', 'image/jpeg', 'image/gif'];
+      const maxFileSize = 500 * 1024; // 500 KB
+
+      const errorEl = document.getElementById('error-message');
+      const uploader = document.querySelector('uc-file-uploader-regular');
+
+      uploader.addEventListener('change', async (event) => {
+        errorEl.textContent = ''; // Clear previous errors
+        const file = event.detail.fileInfo;
+
+        try {
+          const blob = await file.copyTo('https://ucarecdn.com/');
+          const fileInfo = await blob.promise();
+
+          if (!allowedFormats.includes(fileInfo.mimeType)) {
+            throw new Error('Unsupported file format. Only JPG, PNG, and GIF are allowed.');
+          }
+
+          if (fileInfo.size > maxFileSize) {
+            throw new Error('File size exceeds 500 KB limit.');
+          }
+
+          const img = new Image();
+          img.src = fileInfo.cdnUrl;
+          await new Promise((resolve, reject) => {
+            img.onload = () => {
+              const matches = allowedDimensions.some(
+                ([w, h]) => img.width === w && img.height === h
+              );
+              if (!matches) {
+                reject(
+                  new Error(
+                    `Incorrect image dimensions: ${img.width}x${img.height}. Required dimensions are: ${allowedDimensions
+                      .map(([w, h]) => `${w}x${h}`)
+                      .join(', ')}.`
+                  )
+                );
+              } else {
+                resolve();
+              }
+            };
+            img.onerror = () => reject(new Error('Failed to load image for dimension check.'));
+          });
+        } catch (err) {
+          errorEl.textContent = err.message;
+          uploader.value = ''; // Reset uploader so user can try again
+        }
+      });
+    </script>
+  </body>
+</html>
